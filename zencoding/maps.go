@@ -1,5 +1,7 @@
 package zencoding
 
+import "encoding/base64"
+
 func getStringPointer(m map[string]interface{}, key string) *string {
 	if m[key] == nil {
 		return nil
@@ -18,4 +20,13 @@ func getStringArray(m map[string]interface{}, key string) []string {
 		arr[idx] = val.(string)
 	}
 	return arr
+}
+
+func getBytes(m map[string]interface{}, key string) []byte {
+	if m[key] == nil {
+		return nil
+	}
+	s := m[key].(string)
+	b, _ := base64.StdEncoding.DecodeString(s)
+	return b
 }

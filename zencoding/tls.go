@@ -19,6 +19,30 @@ type ServerHello struct {
 	HeartbeatSupported bool   `json:"heartbeat_supported"`
 }
 
+type ServerCertificates struct {
+	Certificates    [][]byte `json:"certificates"`
+	Valid           bool     `json:"is_valid"`
+	ValidationError *string  `json:"validation_error"`
+	CommonName      *string  `json:"common_name"`
+	AltNames        []string `json:"alt_names"`
+	Issuer          *string  `json:"issuer"`
+}
+
+type ServerKeyExchange struct {
+	Key []byte `json:"key"`
+}
+
+type ServerFinished struct {
+	VerifyData []byte `json:"verify_data"`
+}
+
+type Handshake struct {
+	ServerHello        *ServerHello        `json:"server_hello"`
+	ServerCertificates *ServerCertificates `json:"server_certificates"`
+	ServerKeyExchange  *ServerKeyExchange  `json:"server_key_exchange"`
+	ServerFinished     *ServerFinished     `json:"server_finished"`
+}
+
 // SetVersion sets the version and range checks for validity
 func (sh *ServerHello) SetVersion(vers uint16) *ServerHello {
 	if vers < ztls.VersionSSL30 || vers > ztls.VersionTLS12 {
@@ -45,30 +69,6 @@ func (sh *ServerHello) PopulateRandom() *ServerHello {
 	sh.Random = make([]byte, 32)
 	io.ReadFull(rand.Reader, sh.Random)
 	return sh
-}
-
-type ServerCertificates struct {
-	Certificates    [][]byte `json:"certificates"`
-	Valid           bool     `json:"is_valid"`
-	ValidationError *string  `json:"validation_error"`
-	CommonName      *string  `json:"common_name"`
-	AltNames        []string `json:"alt_names"`
-	Issuer          *string  `json:"issuer"`
-}
-
-type ServerKeyExchange struct {
-	Key []byte `json:"key"`
-}
-
-type ServerFinished struct {
-	VerifyData []byte `json:"verify_data"`
-}
-
-type Handshake struct {
-	ServerHello        *ServerHello        `json:"server_hello"`
-	ServerCertificates *ServerCertificates `json:"server_certificates"`
-	ServerKeyExchange  *ServerKeyExchange  `json:"server_key_exchange"`
-	ServerFinished     *ServerFinished     `json:"server_finished"`
 }
 
 func decodeHello(raw map[string]interface{}) *ServerHello {
@@ -106,13 +106,15 @@ func decodeCertificates(raw map[string]interface{}) *ServerCertificates {
 }
 
 func decodeKeyExchange(raw map[string]interface{}) *ServerKeyExchange {
-	kx := new(ServerKeyExchange)
-	return kx
+	skx := new(ServerKeyExchange)
+	skx.Key = getBytes(raw, "key")
+	return skx
 }
 
 func decodeFinished(raw map[string]interface{}) *ServerFinished {
-	f := new(ServerFinished)
-	return f
+	sf := new(ServerFinished)
+	sf.VerifyData = getBytes(raw, "verify_data")
+	return sf
 }
 
 func decodeHandshake(raw map[string]interface{}) *Handshake {
