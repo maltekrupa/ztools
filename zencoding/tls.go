@@ -90,6 +90,18 @@ func decodeHello(raw map[string]interface{}) *ServerHello {
 
 func decodeCertificates(raw map[string]interface{}) *ServerCertificates {
 	c := new(ServerCertificates)
+	if raw["certificates"] != nil {
+		certs := raw["certificates"].([]interface{})
+		c.Certificates = make([][]byte, len(certs))
+		for idx, cert := range certs {
+			c.Certificates[idx], _ = base64.StdEncoding.DecodeString(cert.(string))
+		}
+	}
+	c.Valid = raw["is_valid"].(bool)
+	c.ValidationError = getStringPointer(raw, "validation_error")
+	c.CommonName = getStringPointer(raw, "common_name")
+	c.AltNames = getStringArray(raw, "alt_names")
+	c.Issuer = getStringPointer(raw, "issuer")
 	return c
 }
 
