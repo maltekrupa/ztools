@@ -1,8 +1,10 @@
 package zencoding
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"testing"
 	"ztools/ztls"
 
@@ -24,7 +26,10 @@ func (s *TLSSuite) TestDecodeHello(c *C) {
 
 func (s *TLSSuite) TestDecodeHelloComplicated(c *C) {
 	sh := new(ServerHello)
-	sh.saneDefaults().SetVersion(ztls.VersionSSL30).SetOCSP().SetHeartbeat()
+	sh.saneDefaults()
+	sh.Version = ztls.VersionSSL30
+	sh.OcspStapling = true
+	sh.HeartbeatSupported = true
 	marshalAndUnmarshalHello(sh, c)
 }
 
@@ -53,7 +58,8 @@ func (s *TLSSuite) TestDecodeCertificateComplicated(c *C) {
 
 func (sh *ServerHello) saneDefaults() *ServerHello {
 	sh.SetVersion(ztls.VersionTLS12)
-	sh.PopulateRandom()
+	sh.Random = make([]byte, 32)
+	io.ReadFull(rand.Reader, sh.Random)
 	sh.SessionID = nil
 	sh.CipherSuite = ztls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
 	sh.CompressionMethod = 0

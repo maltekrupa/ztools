@@ -1,13 +1,12 @@
 package zencoding
 
 import (
-	"crypto/rand"
 	"encoding/base64"
-	"io"
 	"log"
 	"ztools/ztls"
 )
 
+// ServerHello represents a TLS ServerHello message in a format friendly to the golang JSON library
 type ServerHello struct {
 	Version            uint16 `json:"version"`
 	Random             []byte `json:"random"`
@@ -19,6 +18,8 @@ type ServerHello struct {
 	HeartbeatSupported bool   `json:"heartbeat_supported"`
 }
 
+// ServerCertificates represents a TLS ServerCertificates message in a format friendly to the golang JSON library.
+// ValidationError should be non-nil whenever Valid is false.
 type ServerCertificates struct {
 	Certificates    [][]byte `json:"certificates"`
 	Valid           bool     `json:"is_valid"`
@@ -28,15 +29,18 @@ type ServerCertificates struct {
 	Issuer          *string  `json:"issuer"`
 }
 
+// ServerKeyExchange represents the raw key data sent by the server in TLS key exchange message
 type ServerKeyExchange struct {
 	Key []byte `json:"key"`
 }
 
+// ServerFinished represents a TLS Finished message sent by the server
 type ServerFinished struct {
 	VerifyData []byte `json:"verify_data"`
 }
 
-type Handshake struct {
+// ServerHandshake stores all of the messages sent by the server during a standard TLS Handshake.
+type ServerHandshake struct {
 	ServerHello        *ServerHello        `json:"server_hello"`
 	ServerCertificates *ServerCertificates `json:"server_certificates"`
 	ServerKeyExchange  *ServerKeyExchange  `json:"server_key_exchange"`
@@ -49,25 +53,6 @@ func (sh *ServerHello) SetVersion(vers uint16) *ServerHello {
 		log.Panic("Invalid TLS version %d", vers)
 	}
 	sh.Version = vers
-	return sh
-}
-
-// SetOCSP sets OCSP support to true
-func (sh *ServerHello) SetOCSP() *ServerHello {
-	sh.OcspStapling = true
-	return sh
-}
-
-// SetHeartbeat sets Heartbeat support to true
-func (sh *ServerHello) SetHeartbeat() *ServerHello {
-	sh.HeartbeatSupported = true
-	return sh
-}
-
-// PopulateRandom creates 32-byte TLS random field
-func (sh *ServerHello) PopulateRandom() *ServerHello {
-	sh.Random = make([]byte, 32)
-	io.ReadFull(rand.Reader, sh.Random)
 	return sh
 }
 
@@ -117,25 +102,25 @@ func decodeFinished(raw map[string]interface{}) *ServerFinished {
 	return sf
 }
 
-func decodeHandshake(raw map[string]interface{}) *Handshake {
-	h := new(Handshake)
+func decodeServerHandshake(raw map[string]interface{}) *ServerHandshake {
+	h := new(ServerHandshake)
 	rawHello, helloPresent := raw["server_hello"]
-	if helloPresent {
+	if helloPresent && rawHello != nil {
 		hello, _ := rawHello.(map[string]interface{})
 		h.ServerHello = decodeHello(hello)
 	}
 	rawCerts, certsPresent := raw["server_certificates"]
-	if certsPresent {
+	if certsPresent && rawCerts != nil {
 		certs, _ := rawCerts.(map[string]interface{})
 		h.ServerCertificates = decodeCertificates(certs)
 	}
 	rawSkx, skxPresent := raw["server_key_exchange"]
-	if skxPresent {
+	if skxPresent && rawSkx != nil {
 		skx, _ := rawSkx.(map[string]interface{})
 		h.ServerKeyExchange = decodeKeyExchange(skx)
 	}
 	rawFinished, finishedPresent := raw["server_finished"]
-	if finishedPresent {
+	if finishedPresent && rawFinished != nil {
 		finished, _ := rawFinished.(map[string]interface{})
 		h.ServerFinished = decodeFinished(finished)
 	}
