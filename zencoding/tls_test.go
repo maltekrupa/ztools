@@ -57,7 +57,7 @@ func (s *TLSSuite) TestDecodeCertificateComplicated(c *C) {
 }
 
 func (sh *ServerHello) saneDefaults() *ServerHello {
-	sh.SetVersion(ztls.VersionTLS12)
+	sh.Version = ztls.VersionTLS12
 	sh.Random = make([]byte, 32)
 	io.ReadFull(rand.Reader, sh.Random)
 	sh.SessionID = nil

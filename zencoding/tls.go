@@ -143,7 +143,7 @@ func decodeFinished(raw map[string]interface{}) *ServerFinished {
 type typeTLS uint8
 
 func (t typeTLS) String() string {
-	return "tls_handshake"
+	return CONNECTION_EVENT_TLS_NAME
 }
 
 const (

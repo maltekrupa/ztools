@@ -1,6 +1,21 @@
 package zencoding
 
-import "encoding/base64"
+import (
+	"encoding/base64"
+	"fmt"
+)
+
+func getString(m map[string]interface{}, key string) (string, error) {
+	raw, ok := m[key]
+	if !ok {
+		return "", fmt.Errorf("Key '%s' not found", key)
+	}
+	s, isString := raw.(string)
+	if !isString {
+		return "", fmt.Errorf("Key '%s' was not a string", key)
+	}
+	return s, nil
+}
 
 func getStringPointer(m map[string]interface{}, key string) *string {
 	if m[key] == nil {
