@@ -2,8 +2,7 @@ package zencoding
 
 import (
 	"encoding/base64"
-	"log"
-	"ztools/ztls"
+	"encoding/json"
 )
 
 // ServerHello represents a TLS ServerHello message in a format friendly to the golang JSON library
@@ -40,20 +39,39 @@ type ServerFinished struct {
 }
 
 // ServerHandshake stores all of the messages sent by the server during a standard TLS Handshake.
+// It implements zgrab.EventData interface
 type ServerHandshake struct {
-	ServerHello        *ServerHello        `json:"server_hello"`
-	ServerCertificates *ServerCertificates `json:"server_certificates"`
-	ServerKeyExchange  *ServerKeyExchange  `json:"server_key_exchange"`
-	ServerFinished     *ServerFinished     `json:"server_finished"`
+	ServerHello        *ServerHello
+	ServerCertificates *ServerCertificates
+	ServerKeyExchange  *ServerKeyExchange
+	ServerFinished     *ServerFinished
 }
 
-// SetVersion sets the version and range checks for validity
-func (sh *ServerHello) SetVersion(vers uint16) *ServerHello {
-	if vers < ztls.VersionSSL30 || vers > ztls.VersionTLS12 {
-		log.Panic("Invalid TLS version %d", vers)
+// GetType always returns the TLS Handshake type
+func (hs *ServerHandshake) GetType() EventType {
+	return typeTLSInstance
+}
+
+// UnpackMap extracts a map[string]interface{} into a ServerHandshake struct
+func (hs *ServerHandshake) UnpackMap(map[string]interface{}) error {
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface
+func (hs *ServerHandshake) MarshalJSON() ([]byte, error) {
+	// Prevent infinite recursion
+	obj := struct {
+		Hello        *ServerHello        `json:"server_hello"`
+		Certificates *ServerCertificates `json:"server_certificates"`
+		KeyExchange  *ServerKeyExchange  `json:"server_key_exchange"`
+		Finished     *ServerFinished     `json:"server_finished"`
+	}{
+		Hello:        hs.ServerHello,
+		Certificates: hs.ServerCertificates,
+		KeyExchange:  hs.ServerKeyExchange,
+		Finished:     hs.ServerFinished,
 	}
-	sh.Version = vers
-	return sh
+	return json.Marshal(obj)
 }
 
 func decodeHello(raw map[string]interface{}) *ServerHello {
@@ -126,3 +144,13 @@ func decodeServerHandshake(raw map[string]interface{}) *ServerHandshake {
 	}
 	return h
 }
+
+type typeTLS uint8
+
+func (t typeTLS) String() string {
+	return "tls_handshake"
+}
+
+const (
+	typeTLSInstance typeTLS = 0
+)
