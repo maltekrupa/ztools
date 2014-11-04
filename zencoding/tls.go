@@ -53,7 +53,27 @@ func (hs *ServerHandshake) GetType() EventType {
 }
 
 // UnpackMap extracts a map[string]interface{} into a ServerHandshake struct
-func (hs *ServerHandshake) UnpackMap(map[string]interface{}) error {
+func (hs *ServerHandshake) UnpackMap(raw map[string]interface{}) error {
+	rawHello, helloPresent := raw["server_hello"]
+	if helloPresent && rawHello != nil {
+		hello, _ := rawHello.(map[string]interface{})
+		hs.ServerHello = decodeHello(hello)
+	}
+	rawCerts, certsPresent := raw["server_certificates"]
+	if certsPresent && rawCerts != nil {
+		certs, _ := rawCerts.(map[string]interface{})
+		hs.ServerCertificates = decodeCertificates(certs)
+	}
+	rawSkx, skxPresent := raw["server_key_exchange"]
+	if skxPresent && rawSkx != nil {
+		skx, _ := rawSkx.(map[string]interface{})
+		hs.ServerKeyExchange = decodeKeyExchange(skx)
+	}
+	rawFinished, finishedPresent := raw["server_finished"]
+	if finishedPresent && rawFinished != nil {
+		finished, _ := rawFinished.(map[string]interface{})
+		hs.ServerFinished = decodeFinished(finished)
+	}
 	return nil
 }
 
@@ -118,31 +138,6 @@ func decodeFinished(raw map[string]interface{}) *ServerFinished {
 	sf := new(ServerFinished)
 	sf.VerifyData = getBytes(raw, "verify_data")
 	return sf
-}
-
-func decodeServerHandshake(raw map[string]interface{}) *ServerHandshake {
-	h := new(ServerHandshake)
-	rawHello, helloPresent := raw["server_hello"]
-	if helloPresent && rawHello != nil {
-		hello, _ := rawHello.(map[string]interface{})
-		h.ServerHello = decodeHello(hello)
-	}
-	rawCerts, certsPresent := raw["server_certificates"]
-	if certsPresent && rawCerts != nil {
-		certs, _ := rawCerts.(map[string]interface{})
-		h.ServerCertificates = decodeCertificates(certs)
-	}
-	rawSkx, skxPresent := raw["server_key_exchange"]
-	if skxPresent && rawSkx != nil {
-		skx, _ := rawSkx.(map[string]interface{})
-		h.ServerKeyExchange = decodeKeyExchange(skx)
-	}
-	rawFinished, finishedPresent := raw["server_finished"]
-	if finishedPresent && rawFinished != nil {
-		finished, _ := rawFinished.(map[string]interface{})
-		h.ServerFinished = decodeFinished(finished)
-	}
-	return h
 }
 
 type typeTLS uint8
