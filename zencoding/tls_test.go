@@ -3,7 +3,6 @@ package zencoding
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"io"
 	"testing"
 	"ztools/ztls"
@@ -20,8 +19,8 @@ var _ = Suite(&TLSSuite{})
 func (s *TLSSuite) TestDecodeHello(c *C) {
 	sh := new(ServerHello)
 	sh.saneDefaults()
-	d := marshalAndUnmarshalHello(sh, c)
-	c.Check(sh, DeepEquals, d)
+	var d ServerHello
+	marshalAndUnmarshal(sh, &d, c)
 }
 
 func (s *TLSSuite) TestDecodeHelloComplicated(c *C) {
@@ -30,14 +29,15 @@ func (s *TLSSuite) TestDecodeHelloComplicated(c *C) {
 	sh.Version = ztls.VersionSSL30
 	sh.OcspStapling = true
 	sh.HeartbeatSupported = true
-	marshalAndUnmarshalHello(sh, c)
+	var d ServerHello
+	marshalAndUnmarshal(sh, &d, c)
 }
 
 func (s *TLSSuite) TestDecodeCertificate(c *C) {
 	sc := new(ServerCertificates)
 	sc.saneDefaults()
-	d := marshalAndUnmarshalCertificates(sc, c)
-	c.Check(sc, DeepEquals, d)
+	var d ServerCertificates
+	marshalAndUnmarshal(sc, &d, c)
 }
 
 func (s *TLSSuite) TestDecodeCertificateComplicated(c *C) {
@@ -52,8 +52,28 @@ func (s *TLSSuite) TestDecodeCertificateComplicated(c *C) {
 	sc.Issuer = &issuer
 	sc.CommonName = &cn
 	sc.AltNames = []string{"www.example.com", "example.com"}
-	d := marshalAndUnmarshalCertificates(sc, c)
-	c.Check(sc, DeepEquals, d)
+	var d ServerCertificates
+	marshalAndUnmarshal(sc, &d, c)
+}
+
+func (s *TLSSuite) TestDecodeHandshake(c *C) {
+	h := new(ServerHandshake).saneDefaults()
+	var d ServerHandshake
+	marshalAndUnmarshal(h, &d, c)
+}
+
+func (s *TLSSuite) TestDecodeEmptyHandshake(c *C) {
+	h := new(ServerHandshake)
+	var d ServerHandshake
+	marshalAndUnmarshal(h, &d, c)
+}
+
+func (s *TLSSuite) TestServerHandshakeType(c *C) {
+	h := new(ServerHandshake)
+	t := h.GetType()
+	c.Check(CONNECTION_EVENT_TLS, Equals, t)
+	n := t.TypeName()
+	c.Check(CONNECTION_EVENT_TLS_NAME, Equals, n)
 }
 
 func (sh *ServerHello) saneDefaults() *ServerHello {
@@ -74,28 +94,27 @@ func (c *ServerCertificates) saneDefaults() *ServerCertificates {
 	c.Valid = false
 	validationError := "Certificate chain does not exist"
 	c.ValidationError = &validationError
-
 	return c
 }
 
-func marshalAndUnmarshalHello(sh *ServerHello, c *C) *ServerHello {
-	// Serialize it
-	serialized, err := json.Marshal(sh)
-	c.Assert(err, IsNil)
-	// Deserialize it
-	var r interface{}
-	json.Unmarshal(serialized, &r)
-	d := decodeHello(r.(map[string]interface{}))
-	return d
+func (skx *ServerKeyExchange) saneDefaults() *ServerKeyExchange {
+	skx.Key = make([]byte, 8)
+	io.ReadFull(rand.Reader, skx.Key)
+	return skx
 }
 
-func marshalAndUnmarshalCertificates(sc *ServerCertificates, c *C) *ServerCertificates {
-	serialized, err := json.Marshal(sc)
-	c.Assert(err, IsNil)
-	var r interface{}
-	json.Unmarshal(serialized, &r)
-	decoded := decodeCertificates(r.(map[string]interface{}))
-	return decoded
+func (sf *ServerFinished) saneDefaults() *ServerFinished {
+	sf.VerifyData = make([]byte, 4)
+	io.ReadFull(rand.Reader, sf.VerifyData)
+	return sf
+}
+
+func (h *ServerHandshake) saneDefaults() *ServerHandshake {
+	h.ServerHello = new(ServerHello).saneDefaults()
+	h.ServerCertificates = new(ServerCertificates).saneDefaults()
+	h.ServerKeyExchange = new(ServerKeyExchange).saneDefaults()
+	h.ServerFinished = new(ServerFinished).saneDefaults()
+	return h
 }
 
 func getValidCertChainBase64() []string {

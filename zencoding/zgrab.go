@@ -10,8 +10,8 @@ import (
 
 type EventData interface {
 	GetType() EventType
-	UnpackMap(map[string]interface{}) error
 	MarshalJSON() ([]byte, error)
+	UnmarshalJSON([]byte) error
 }
 
 type ConnectionEvent struct {
@@ -26,22 +26,59 @@ type Grab struct {
 	Log    []ConnectionEvent `json:"log"`
 }
 
-type EventType interface {
-	String() string
+type EventType uint8
+
+var typeNameToTypeMap map[string]EventType
+var typeToTypeNameMap map[EventType]string
+
+func init() {
+	typeNameToTypeMap = make(map[string]EventType)
+	typeToTypeNameMap = make(map[EventType]string)
+
+	typeNameToTypeMap[CONNECTION_EVENT_CONNECT_NAME] = CONNECTION_EVENT_CONNECT
+	typeNameToTypeMap[CONNECTION_EVENT_TLS_NAME] = CONNECTION_EVENT_TLS
+
+	typeToTypeNameMap[CONNECTION_EVENT_CONNECT] = CONNECTION_EVENT_CONNECT_NAME
+	typeToTypeNameMap[CONNECTION_EVENT_TLS] = CONNECTION_EVENT_TLS_NAME
+}
+
+func EventTypeFromName(name string) (EventType, error) {
+	t, ok := typeNameToTypeMap[name]
+	if !ok {
+		return t, fmt.Errorf("Unknown type name %s", name)
+	}
+	return t, nil
+}
+
+func (t EventType) TypeName() string {
+	return typeToTypeNameMap[t]
+}
+
+func (t EventType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.TypeName())
+}
+
+func (t *EventType) UnmarshalJSON(b []byte) error {
+	var typeName string
+	if unmarshalErr := json.Unmarshal(b, &typeName); unmarshalErr != nil {
+		return unmarshalErr
+	}
+	eventType, eventTypeErr := EventTypeFromName(typeName)
+	if eventTypeErr != nil {
+		return eventTypeErr
+	}
+	*t = eventType
+	return nil
 }
 
 func (ce *ConnectionEvent) MarshalJSON() ([]byte, error) {
-	t := ce.Data.GetType().String()
+	t := ce.Data.GetType()
 	var esp *string
 	if ce.Error != nil {
 		es := ce.Error.Error()
 		esp = &es
 	}
-	obj := struct {
-		Type  string    `json:"type"`
-		Data  EventData `json:"data"`
-		Error *string   `json:"error"`
-	}{
+	obj := encodedConnectionEvent{
 		Type:  t,
 		Data:  ce.Data,
 		Error: esp,
@@ -49,24 +86,26 @@ func (ce *ConnectionEvent) MarshalJSON() ([]byte, error) {
 	return json.Marshal(obj)
 }
 
-func (ce *ConnectionEvent) UnpackMap(raw map[string]interface{}) error {
-	eventType, err := getString(raw, "type")
-	if err != nil {
+func (ce *ConnectionEvent) UnmarshalJSON(b []byte) error {
+	ece := new(encodedConnectionEvent)
+	t := struct {
+		Type EventType `json:"type"`
+	}{}
+	if err := json.Unmarshal(b, &t); err != nil {
 		return err
 	}
-	eventError := getStringPointer(raw, "error")
-	if eventError == nil {
-		ce.Error = errors.New(*eventError)
-	} else {
-		ce.Data = eventDataFromTypeName(eventType)
-		if ce.Data == nil {
-			return fmt.Errorf("Unknown event type %s", eventType)
-		}
-		rawData, ok := raw["data"].(map[string]interface{})
-		if !ok {
-			return errors.New("Invalid \"data\" field")
-		}
-		ce.Data.UnpackMap(rawData)
+	switch t.Type {
+	case CONNECTION_EVENT_TLS:
+		ece.Data = new(ServerHandshake)
+	default:
+		return fmt.Errorf("Unknown event type: %s", t.Type.TypeName())
+	}
+	if err := json.Unmarshal(b, &ece); err != nil {
+		return err
+	}
+	ce.Data = ece.Data
+	if ece.Error != nil {
+		ce.Error = errors.New(*ece.Error)
 	}
 	return nil
 }
@@ -77,12 +116,7 @@ func (g *Grab) MarshalJSON() ([]byte, error) {
 		domainPtr = &g.Domain
 	}
 	time := g.Time.Format(time.RFC3339)
-	obj := struct {
-		Host   string            `json:"host"`
-		Domain *string           `json:"domain"`
-		Time   string            `json:"time"`
-		Log    []ConnectionEvent `json:"log"`
-	}{
+	obj := encodedGrab{
 		Host:   g.Host.String(),
 		Domain: domainPtr,
 		Time:   time,
@@ -91,52 +125,26 @@ func (g *Grab) MarshalJSON() ([]byte, error) {
 	return json.Marshal(obj)
 }
 
-func (g *Grab) UnpackMap(raw map[string]interface{}) error {
-	var s string
-	var sp *string
-	var err error
-	// Read the IP as the "host" field
-	if s, err = getString(raw, "host"); err != nil {
+func (g *Grab) UnmarshalJSON(b []byte) error {
+	eg := new(encodedGrab)
+	err := json.Unmarshal(b, eg)
+	if err != nil {
 		return err
 	}
-	if g.Host = net.ParseIP(s); g.Host == nil {
-		return fmt.Errorf("Invalid host: %s is not an IP", s)
+	g.Host = net.ParseIP(eg.Host)
+	if eg.Domain != nil {
+		g.Domain = *eg.Domain
 	}
-	// Read the domain
-	if sp = getStringPointer(raw, "domain"); sp != nil {
-		g.Domain = *sp
-	}
-	// Read the timestamp
-	if s, err = getString(raw, "time"); err != nil {
+	if g.Time, err = time.Parse(time.RFC3339, eg.Time); err != nil {
 		return err
 	}
-	if g.Time, err = time.Parse(time.RFC3339, s); err != nil {
-		return err
-	}
-	// Read each element of the log
-	log := raw["log"].([]interface{})
-	g.Log = make([]ConnectionEvent, len(log))
-	for idx, val := range log {
-		rawEvent, ok := val.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("Invalid log entry at index %d", idx)
-		}
-		if err = g.Log[idx].UnpackMap(rawEvent); err != nil {
-			return fmt.Errorf("Invalid log entry at index %d: %s", idx, err.Error())
-		}
-	}
+	g.Log = eg.Log
 	return nil
 }
 
-func eventDataFromTypeName(name string) EventData {
-	switch name {
-	case CONNECTION_EVENT_TLS_NAME:
-		return new(ServerHandshake)
-	default:
-		return nil
-	}
-}
-
 const (
-	CONNECTION_EVENT_TLS_NAME = "tls_handshake"
+	CONNECTION_EVENT_CONNECT      EventType = 0
+	CONNECTION_EVENT_CONNECT_NAME           = "connect"
+	CONNECTION_EVENT_TLS          EventType = 1
+	CONNECTION_EVENT_TLS_NAME               = "tls_handshake"
 )
