@@ -53,6 +53,10 @@ type Conn struct {
 	hand     bytes.Buffer // handshake data waiting to be read
 
 	tmp [16]byte
+
+	// ztls
+	heartbeat    bool
+	handshakeLog *ServerHandshake
 }
 
 // Access to net.Conn methods.

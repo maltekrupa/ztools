@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"time"
 )
@@ -26,20 +27,24 @@ type Grab struct {
 	Log    []ConnectionEvent `json:"log"`
 }
 
-type EventType uint8
+type EventType interface {
+	TypeName() string
+	GetEmptyInstance() EventData
+	MarshalJSON() ([]byte, error)
+}
 
 var typeNameToTypeMap map[string]EventType
-var typeToTypeNameMap map[EventType]string
 
 func init() {
 	typeNameToTypeMap = make(map[string]EventType)
-	typeToTypeNameMap = make(map[EventType]string)
+}
 
-	typeNameToTypeMap[CONNECTION_EVENT_CONNECT_NAME] = CONNECTION_EVENT_CONNECT
-	typeNameToTypeMap[CONNECTION_EVENT_TLS_NAME] = CONNECTION_EVENT_TLS
-
-	typeToTypeNameMap[CONNECTION_EVENT_CONNECT] = CONNECTION_EVENT_CONNECT_NAME
-	typeToTypeNameMap[CONNECTION_EVENT_TLS] = CONNECTION_EVENT_TLS_NAME
+func RegisterEventType(t EventType) {
+	name := t.TypeName()
+	if _, exists := typeNameToTypeMap[name]; exists {
+		panic("Duplicate type name " + name)
+	}
+	typeNameToTypeMap[name] = t
 }
 
 func EventTypeFromName(name string) (EventType, error) {
@@ -50,25 +55,22 @@ func EventTypeFromName(name string) (EventType, error) {
 	return t, nil
 }
 
-func (t EventType) TypeName() string {
-	return typeToTypeNameMap[t]
+type encodedGrab struct {
+	Host   string            `json:"host"`
+	Domain *string           `json:"domain"`
+	Time   string            `json:"time"`
+	Log    []ConnectionEvent `json:"log"`
 }
 
-func (t EventType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.TypeName())
+type encodedConnectionEvent struct {
+	Type  EventType `json:"type"`
+	Data  EventData `json:"data"`
+	Error *string   `json:"error"`
 }
 
-func (t *EventType) UnmarshalJSON(b []byte) error {
-	var typeName string
-	if unmarshalErr := json.Unmarshal(b, &typeName); unmarshalErr != nil {
-		return unmarshalErr
-	}
-	eventType, eventTypeErr := EventTypeFromName(typeName)
-	if eventTypeErr != nil {
-		return eventTypeErr
-	}
-	*t = eventType
-	return nil
+type partialConnectionEvent struct {
+	Data  EventData `json:"data"`
+	Error *string   `json:"error"`
 }
 
 func (ce *ConnectionEvent) MarshalJSON() ([]byte, error) {
@@ -87,20 +89,20 @@ func (ce *ConnectionEvent) MarshalJSON() ([]byte, error) {
 }
 
 func (ce *ConnectionEvent) UnmarshalJSON(b []byte) error {
-	ece := new(encodedConnectionEvent)
-	t := struct {
-		Type EventType `json:"type"`
+	ece := new(partialConnectionEvent)
+	tn := struct {
+		TypeName string `json:"type"`
 	}{}
-	if err := json.Unmarshal(b, &t); err != nil {
+	if err := json.Unmarshal(b, &tn); err != nil {
 		return err
 	}
-	switch t.Type {
-	case CONNECTION_EVENT_TLS:
-		ece.Data = new(ServerHandshake)
-	default:
-		return fmt.Errorf("Unknown event type: %s", t.Type.TypeName())
+	t, typeErr := EventTypeFromName(tn.TypeName)
+	if typeErr != nil {
+		return typeErr
 	}
+	ece.Data = t.GetEmptyInstance()
 	if err := json.Unmarshal(b, &ece); err != nil {
+		log.Print(err)
 		return err
 	}
 	ce.Data = ece.Data
@@ -141,10 +143,3 @@ func (g *Grab) UnmarshalJSON(b []byte) error {
 	g.Log = eg.Log
 	return nil
 }
-
-const (
-	CONNECTION_EVENT_CONNECT      EventType = 0
-	CONNECTION_EVENT_CONNECT_NAME           = "connect"
-	CONNECTION_EVENT_TLS          EventType = 1
-	CONNECTION_EVENT_TLS_NAME               = "tls_handshake"
-)

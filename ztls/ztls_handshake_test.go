@@ -1,46 +1,49 @@
-package zencoding
+package ztls
 
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"io"
+	"net"
 	"testing"
-	"ztools/ztls"
+	"time"
+	"ztools/zencoding"
 
 	. "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) { TestingT(t) }
 
-type TLSSuite struct{}
+type ZTLSHandshakeSuite struct{}
 
-var _ = Suite(&TLSSuite{})
+var _ = Suite(&ZTLSHandshakeSuite{})
 
-func (s *TLSSuite) TestDecodeHello(c *C) {
+func (s *ZTLSHandshakeSuite) TestDecodeHello(c *C) {
 	sh := new(ServerHello)
 	sh.saneDefaults()
 	var d ServerHello
 	marshalAndUnmarshal(sh, &d, c)
 }
 
-func (s *TLSSuite) TestDecodeHelloComplicated(c *C) {
+func (s *ZTLSHandshakeSuite) TestDecodeHelloComplicated(c *C) {
 	sh := new(ServerHello)
 	sh.saneDefaults()
-	sh.Version = ztls.VersionSSL30
+	sh.Version = VersionSSL30
 	sh.OcspStapling = true
 	sh.HeartbeatSupported = true
 	var d ServerHello
 	marshalAndUnmarshal(sh, &d, c)
 }
 
-func (s *TLSSuite) TestDecodeCertificate(c *C) {
+func (s *ZTLSHandshakeSuite) TestDecodeCertificate(c *C) {
 	sc := new(ServerCertificates)
 	sc.saneDefaults()
 	var d ServerCertificates
 	marshalAndUnmarshal(sc, &d, c)
 }
 
-func (s *TLSSuite) TestDecodeCertificateComplicated(c *C) {
+func (s *ZTLSHandshakeSuite) TestDecodeCertificateComplicated(c *C) {
 	sc := new(ServerCertificates)
 	sc.saneDefaults()
 	sc.Certificates = make([][]byte, 2)
@@ -56,32 +59,44 @@ func (s *TLSSuite) TestDecodeCertificateComplicated(c *C) {
 	marshalAndUnmarshal(sc, &d, c)
 }
 
-func (s *TLSSuite) TestDecodeHandshake(c *C) {
+func (s *ZTLSHandshakeSuite) TestDecodeHandshake(c *C) {
 	h := new(ServerHandshake).saneDefaults()
 	var d ServerHandshake
 	marshalAndUnmarshal(h, &d, c)
 }
 
-func (s *TLSSuite) TestDecodeEmptyHandshake(c *C) {
+func (s *ZTLSHandshakeSuite) TestDecodeEmptyHandshake(c *C) {
 	h := new(ServerHandshake)
 	var d ServerHandshake
 	marshalAndUnmarshal(h, &d, c)
 }
 
-func (s *TLSSuite) TestServerHandshakeType(c *C) {
+func (s *ZTLSHandshakeSuite) TestServerHandshakeType(c *C) {
 	h := new(ServerHandshake)
 	t := h.GetType()
-	c.Check(CONNECTION_EVENT_TLS, Equals, t)
+	var expectedType EventTypeTLS
+	c.Check(t, FitsTypeOf, expectedType)
 	n := t.TypeName()
 	c.Check(CONNECTION_EVENT_TLS_NAME, Equals, n)
 }
 
+func (s *ZTLSHandshakeSuite) TestServerHandshakeInGrab(c *C) {
+	h := new(ServerHandshake).saneDefaults()
+	g := new(zencoding.Grab)
+	g.Host = net.ParseIP("3.4.5.6")
+	g.Time = time.Unix(987654321, 0)
+	g.Log = make([]zencoding.ConnectionEvent, 1)
+	g.Log[0].Data = h
+	var d zencoding.Grab
+	marshalAndUnmarshal(g, &d, c)
+}
+
 func (sh *ServerHello) saneDefaults() *ServerHello {
-	sh.Version = ztls.VersionTLS12
+	sh.Version = VersionTLS12
 	sh.Random = make([]byte, 32)
 	io.ReadFull(rand.Reader, sh.Random)
 	sh.SessionID = nil
-	sh.CipherSuite = ztls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+	sh.CipherSuite = TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
 	sh.CompressionMethod = 0
 	sh.OcspStapling = false
 	sh.TicketSupported = false
@@ -115,6 +130,14 @@ func (h *ServerHandshake) saneDefaults() *ServerHandshake {
 	h.ServerKeyExchange = new(ServerKeyExchange).saneDefaults()
 	h.ServerFinished = new(ServerFinished).saneDefaults()
 	return h
+}
+
+func marshalAndUnmarshal(original interface{}, target interface{}, c *C) {
+	b, err := json.Marshal(original)
+	c.Assert(err, IsNil)
+	err = json.Unmarshal(b, target)
+	c.Assert(err, IsNil)
+	c.Check(target, DeepEquals, original)
 }
 
 func getValidCertChainBase64() []string {
