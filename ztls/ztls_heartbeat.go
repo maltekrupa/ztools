@@ -7,7 +7,8 @@ import (
 const (
 	recordTypeHeartbeat recordType = 24
 )
-const (
+
+var (
 	HeartbleedError = errors.New("Error after Heartbleed")
 )
 
