@@ -16,8 +16,7 @@ type ZGrabSuite struct{}
 var _ = Suite(&ZGrabSuite{})
 
 func (s *ZGrabSuite) SetUpSuite(c *C) {
-	var t mockEventType
-	RegisterEventType(t)
+	RegisterEventType(mockEventType)
 }
 
 func (s *ZGrabSuite) TestUnknownEventTypeFromName(c *C) {

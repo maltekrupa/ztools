@@ -2,7 +2,17 @@ package zencoding
 
 import "encoding/json"
 
-type mockEventType uint8
+var (
+	mockEventType = EventType{
+		TypeName:         "mock",
+		GetEmptyInstance: newMockEvent,
+	}
+)
+
+func newMockEvent() EventData {
+	return new(mockEventData)
+}
+
 type mockEventData struct {
 	A string
 	B int
@@ -15,21 +25,8 @@ type encodedMockEvent struct {
 	C *string
 }
 
-func (t mockEventType) TypeName() string {
-	return "mock"
-}
-
-func (t mockEventType) GetEmptyInstance() EventData {
-	return new(mockEventData)
-}
-
-func (t mockEventType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.TypeName())
-}
-
 func (m *mockEventData) GetType() EventType {
-	var t mockEventType
-	return t
+	return mockEventType
 }
 
 func (m *mockEventData) MarshalJSON() ([]byte, error) {

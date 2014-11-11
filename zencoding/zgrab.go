@@ -27,10 +27,14 @@ type Grab struct {
 	Log    []ConnectionEvent `json:"log"`
 }
 
-type EventType interface {
-	TypeName() string
-	GetEmptyInstance() EventData
-	MarshalJSON() ([]byte, error)
+type EventType struct {
+	TypeName         string
+	GetEmptyInstance func() EventData
+}
+
+// MarshalJSON implements the json.Marshaler interface
+func (e EventType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.TypeName)
 }
 
 var typeNameToTypeMap map[string]EventType
@@ -40,7 +44,7 @@ func init() {
 }
 
 func RegisterEventType(t EventType) {
-	name := t.TypeName()
+	name := t.TypeName
 	if _, exists := typeNameToTypeMap[name]; exists {
 		panic("Duplicate type name " + name)
 	}

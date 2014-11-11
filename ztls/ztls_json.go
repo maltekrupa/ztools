@@ -12,25 +12,20 @@ type encodedHandshake struct {
 	Finished     *ServerFinished     `json:"server_finished"`
 }
 
-// Implements zencoding.EventType
-type EventTypeTLS uint8
+var (
+	TLSType = zencoding.EventType{
+		TypeName:         CONNECTION_EVENT_TLS_NAME,
+		GetEmptyInstance: newServerHandshake,
+	}
+)
 
-func (t EventTypeTLS) TypeName() string {
-	return CONNECTION_EVENT_TLS_NAME
-}
-
-func (t EventTypeTLS) GetEmptyInstance() zencoding.EventData {
+func newServerHandshake() zencoding.EventData {
 	return new(ServerHandshake)
-}
-
-func (t EventTypeTLS) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.TypeName())
 }
 
 // GetType always returns the TLS Handshake type
 func (hs *ServerHandshake) GetType() zencoding.EventType {
-	var t EventTypeTLS
-	return t
+	return TLSType
 }
 
 // MarshalJSON implements the json.Marshaler interface
@@ -59,8 +54,7 @@ func (hs *ServerHandshake) UnmarshalJSON(b []byte) error {
 }
 
 func init() {
-	var t EventTypeTLS
-	zencoding.RegisterEventType(t)
+	zencoding.RegisterEventType(TLSType)
 }
 
 const (

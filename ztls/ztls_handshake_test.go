@@ -74,9 +74,8 @@ func (s *ZTLSHandshakeSuite) TestDecodeEmptyHandshake(c *C) {
 func (s *ZTLSHandshakeSuite) TestServerHandshakeType(c *C) {
 	h := new(ServerHandshake)
 	t := h.GetType()
-	var expectedType EventTypeTLS
-	c.Check(t, FitsTypeOf, expectedType)
-	n := t.TypeName()
+	//c.Check(t, DeepEquals, TLSType)
+	n := t.TypeName
 	c.Check(CONNECTION_EVENT_TLS_NAME, Equals, n)
 }
 
