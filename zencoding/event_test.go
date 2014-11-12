@@ -1,57 +1,18 @@
 package zencoding
 
-import "encoding/json"
+import (
+	"testing"
 
-var (
-	mockEventType = EventType{
-		TypeName:         "mock",
-		GetEmptyInstance: newMockEvent,
-	}
+	. "gopkg.in/check.v1"
 )
 
-func newMockEvent() EventData {
-	return new(mockEventData)
-}
+func TestEventSuite(t *testing.T) { TestingT(t) }
 
-type mockEventData struct {
-	A string
-	B int
-	C *string
-}
+type EventSuite struct{}
 
-type encodedMockEvent struct {
-	A string
-	B int
-	C *string
-}
+var _ = Suite(&EventSuite{})
 
-func (m *mockEventData) GetType() EventType {
-	return mockEventType
-}
-
-func (m *mockEventData) MarshalJSON() ([]byte, error) {
-	e := encodedMockEvent{
-		A: m.A,
-		B: m.B,
-		C: m.C,
-	}
-	return json.Marshal(&e)
-}
-
-func (m *mockEventData) UnmarshalJSON(b []byte) error {
-	e := encodedMockEvent{}
-	if err := json.Unmarshal(b, &e); err != nil {
-		return err
-	}
-	m.A = e.A
-	m.B = e.B
-	m.C = e.C
-	return nil
-}
-
-func (m *mockEventData) saneDefaults() *mockEventData {
-	m.A = "a"
-	m.B = 123
-	m.C = nil
-	return m
+func (s *EventSuite) TestEventTypeFromName(c *C) {
+	_, err := EventTypeFromName("does-not-exist")
+	c.Check(err, NotNil)
 }

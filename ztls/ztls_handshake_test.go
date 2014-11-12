@@ -4,11 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
-	"net"
 	"testing"
-	"time"
-	"ztools/zencoding"
 
 	. "gopkg.in/check.v1"
 )
@@ -36,26 +34,37 @@ func (s *ZTLSHandshakeSuite) TestDecodeHelloComplicated(c *C) {
 	marshalAndUnmarshal(sh, &d, c)
 }
 
+func (s *ZTLSHandshakeSuite) TestEncodeCertificate(c *C) {
+	sc := new(Certificates)
+	b, encodingErr := json.Marshal(sc)
+	c.Assert(encodingErr, IsNil)
+	ec := new(encodedCertificates)
+	decodingErr := json.Unmarshal(b, ec)
+	c.Assert(decodingErr, IsNil)
+	c.Check(ec.Issuer, IsNil)
+	c.Check(ec.AltNames, IsNil)
+	c.Check(ec.CommonName, IsNil)
+	c.Check(ec.ValidationError, IsNil)
+}
+
 func (s *ZTLSHandshakeSuite) TestDecodeCertificate(c *C) {
-	sc := new(ServerCertificates)
+	sc := new(Certificates)
 	sc.saneDefaults()
-	var d ServerCertificates
+	var d Certificates
 	marshalAndUnmarshal(sc, &d, c)
 }
 
 func (s *ZTLSHandshakeSuite) TestDecodeCertificateComplicated(c *C) {
-	sc := new(ServerCertificates)
+	sc := new(Certificates)
 	sc.saneDefaults()
 	sc.Certificates = make([][]byte, 2)
 	for idx, cert := range getValidCertChainBase64() {
 		sc.Certificates[idx], _ = base64.StdEncoding.DecodeString(cert)
 	}
-	issuer := "Example CA"
-	cn := "example.com"
-	sc.Issuer = &issuer
-	sc.CommonName = &cn
+	sc.Issuer = "Example CA"
+	sc.CommonName = "example.com"
 	sc.AltNames = []string{"www.example.com", "example.com"}
-	var d ServerCertificates
+	var d Certificates
 	marshalAndUnmarshal(sc, &d, c)
 }
 
@@ -71,25 +80,6 @@ func (s *ZTLSHandshakeSuite) TestDecodeEmptyHandshake(c *C) {
 	marshalAndUnmarshal(h, &d, c)
 }
 
-func (s *ZTLSHandshakeSuite) TestServerHandshakeType(c *C) {
-	h := new(ServerHandshake)
-	t := h.GetType()
-	//c.Check(t, DeepEquals, TLSType)
-	n := t.TypeName
-	c.Check(CONNECTION_EVENT_TLS_NAME, Equals, n)
-}
-
-func (s *ZTLSHandshakeSuite) TestServerHandshakeInGrab(c *C) {
-	h := new(ServerHandshake).saneDefaults()
-	g := new(zencoding.Grab)
-	g.Host = net.ParseIP("3.4.5.6")
-	g.Time = time.Unix(987654321, 0)
-	g.Log = make([]zencoding.ConnectionEvent, 1)
-	g.Log[0].Data = h
-	var d zencoding.Grab
-	marshalAndUnmarshal(g, &d, c)
-}
-
 func (sh *ServerHello) saneDefaults() *ServerHello {
 	sh.Version = VersionTLS12
 	sh.Random = make([]byte, 32)
@@ -103,11 +93,10 @@ func (sh *ServerHello) saneDefaults() *ServerHello {
 	return sh
 }
 
-func (c *ServerCertificates) saneDefaults() *ServerCertificates {
+func (c *Certificates) saneDefaults() *Certificates {
 	c.Certificates = make([][]byte, 0)
 	c.Valid = false
-	validationError := "Certificate chain does not exist"
-	c.ValidationError = &validationError
+	c.ValidationError = errors.New("Certificate chain does not exist")
 	return c
 }
 
@@ -117,7 +106,7 @@ func (skx *ServerKeyExchange) saneDefaults() *ServerKeyExchange {
 	return skx
 }
 
-func (sf *ServerFinished) saneDefaults() *ServerFinished {
+func (sf *Finished) saneDefaults() *Finished {
 	sf.VerifyData = make([]byte, 4)
 	io.ReadFull(rand.Reader, sf.VerifyData)
 	return sf
@@ -125,9 +114,9 @@ func (sf *ServerFinished) saneDefaults() *ServerFinished {
 
 func (h *ServerHandshake) saneDefaults() *ServerHandshake {
 	h.ServerHello = new(ServerHello).saneDefaults()
-	h.ServerCertificates = new(ServerCertificates).saneDefaults()
+	h.ServerCertificates = new(Certificates).saneDefaults()
 	h.ServerKeyExchange = new(ServerKeyExchange).saneDefaults()
-	h.ServerFinished = new(ServerFinished).saneDefaults()
+	h.ServerFinished = new(Finished).saneDefaults()
 	return h
 }
 

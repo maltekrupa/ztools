@@ -1,24 +1,13 @@
-package zencoding
+package zgrab
 
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"time"
+	"ztools/zencoding"
 )
-
-type EventData interface {
-	GetType() EventType
-	MarshalJSON() ([]byte, error)
-	UnmarshalJSON([]byte) error
-}
-
-type ConnectionEvent struct {
-	Data  EventData
-	Error error
-}
 
 type Grab struct {
 	Host   net.IP            `json:"host"`
@@ -27,36 +16,9 @@ type Grab struct {
 	Log    []ConnectionEvent `json:"log"`
 }
 
-type EventType struct {
-	TypeName         string
-	GetEmptyInstance func() EventData
-}
-
-// MarshalJSON implements the json.Marshaler interface
-func (e EventType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(e.TypeName)
-}
-
-var typeNameToTypeMap map[string]EventType
-
-func init() {
-	typeNameToTypeMap = make(map[string]EventType)
-}
-
-func RegisterEventType(t EventType) {
-	name := t.TypeName
-	if _, exists := typeNameToTypeMap[name]; exists {
-		panic("Duplicate type name " + name)
-	}
-	typeNameToTypeMap[name] = t
-}
-
-func EventTypeFromName(name string) (EventType, error) {
-	t, ok := typeNameToTypeMap[name]
-	if !ok {
-		return t, fmt.Errorf("Unknown type name %s", name)
-	}
-	return t, nil
+type ConnectionEvent struct {
+	Data  zencoding.EventData
+	Error error
 }
 
 type encodedGrab struct {
@@ -67,14 +29,14 @@ type encodedGrab struct {
 }
 
 type encodedConnectionEvent struct {
-	Type  EventType `json:"type"`
-	Data  EventData `json:"data"`
-	Error *string   `json:"error"`
+	Type  zencoding.EventType `json:"type"`
+	Data  zencoding.EventData `json:"data"`
+	Error *string             `json:"error"`
 }
 
 type partialConnectionEvent struct {
-	Data  EventData `json:"data"`
-	Error *string   `json:"error"`
+	Data  zencoding.EventData `json:"data"`
+	Error *string             `json:"error"`
 }
 
 func (ce *ConnectionEvent) MarshalJSON() ([]byte, error) {
@@ -100,7 +62,7 @@ func (ce *ConnectionEvent) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &tn); err != nil {
 		return err
 	}
-	t, typeErr := EventTypeFromName(tn.TypeName)
+	t, typeErr := zencoding.EventTypeFromName(tn.TypeName)
 	if typeErr != nil {
 		return typeErr
 	}

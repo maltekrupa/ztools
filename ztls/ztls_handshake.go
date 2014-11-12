@@ -36,10 +36,10 @@ type Finished struct {
 // ServerHandshake stores all of the messages sent by the server during a standard TLS Handshake.
 // It implements zgrab.EventData interface
 type ServerHandshake struct {
-	ServerHello        *ServerHello
-	ServerCertificates *Certificates
-	ServerKeyExchange  *ServerKeyExchange
-	ServerFinished     *Finished
+	ServerHello        *ServerHello       `json:"server_hello"`
+	ServerCertificates *Certificates      `json:"server_certificates"`
+	ServerKeyExchange  *ServerKeyExchange `json:"server_key_exchange"`
+	ServerFinished     *Finished          `json:"server_finished"`
 }
 
 func (c *Conn) GetHandshakeLog() *ServerHandshake {
