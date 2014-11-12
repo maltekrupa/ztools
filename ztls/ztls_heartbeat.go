@@ -5,12 +5,29 @@ import (
 )
 
 const (
+	// Record Type
 	recordTypeHeartbeat recordType = 24
+
+	// Extension Number
+	extensionHeartbeat uint16 = 15
+
+	// Heartbeat Mode
+	heartbeatModePeerAllowed    uint8 = 1
+	heartbeatModePeerNotAllowed uint8 = 2
+
+	// Heartbeat Message Types
+	heartbeatTypeRequest  uint8 = 1
+	heartbeatTypeResponse uint8 = 2
 )
 
 var (
 	HeartbleedError = errors.New("Error after Heartbleed")
 )
+
+type Heartbleed struct {
+	HeartbeatEnabled bool
+	Vulnerable       bool
+}
 
 type heartbleedMessage struct {
 	raw []byte

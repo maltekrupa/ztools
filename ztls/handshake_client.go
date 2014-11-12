@@ -37,6 +37,8 @@ func (c *Conn) clientHandshake() error {
 		return errors.New("tls: either ServerName or InsecureSkipVerify must be specified in the tls.Config")
 	}
 
+	c.handshakeLog = new(ServerHandshake)
+
 	hello := &clientHelloMsg{
 		vers:                c.config.maxVersion(),
 		compressionMethods:  []uint8{compressionNone},
@@ -134,6 +136,7 @@ NextCipherSuite:
 		c.sendAlert(alertUnexpectedMessage)
 		return unexpectedMessageError(serverHello, msg)
 	}
+	c.handshakeLog.ServerHello = serverHello.MakeLog()
 
 	vers, ok := c.config.mutualVersion(serverHello.vers)
 	if !ok {
@@ -221,17 +224,26 @@ func (hs *clientHandshakeState) doFullHandshake() error {
 	}
 	hs.finishedHash.Write(certMsg.marshal())
 
+	c.handshakeLog.ServerCertificates = certMsg.MakeLog()
+
 	certs := make([]*x509.Certificate, len(certMsg.certificates))
+	invalidCert := false
 	for i, asn1Data := range certMsg.certificates {
 		cert, err := x509.ParseCertificate(asn1Data)
 		if err != nil {
-			c.sendAlert(alertBadCertificate)
-			return errors.New("tls: failed to parse certificate from server: " + err.Error())
+			invalidCert = true
+			c.handshakeLog.ServerCertificates.ValidationError = err
+			break
 		}
 		certs[i] = cert
 	}
 
-	if !c.config.InsecureSkipVerify {
+	if !c.config.InsecureSkipVerify && invalidCert {
+		c.sendAlert(alertBadCertificate)
+		return errors.New("tls: failed to parse certificate from server: " + err.Error())
+	}
+
+	if !invalidCert {
 		opts := x509.VerifyOptions{
 			Roots:         c.config.RootCAs,
 			CurrentTime:   c.config.time(),
@@ -239,6 +251,7 @@ func (hs *clientHandshakeState) doFullHandshake() error {
 			Intermediates: x509.NewCertPool(),
 		}
 
+		// Always check validity of the certificates
 		for i, cert := range certs {
 			if i == 0 {
 				continue
@@ -246,9 +259,23 @@ func (hs *clientHandshakeState) doFullHandshake() error {
 			opts.Intermediates.AddCert(cert)
 		}
 		c.verifiedChains, err = certs[0].Verify(opts)
-		if err != nil {
-			c.sendAlert(alertBadCertificate)
-			return err
+		if err == nil {
+			c.handshakeLog.ServerCertificates.Valid = true
+		} else {
+			c.handshakeLog.ServerCertificates.ValidationError = err
+		}
+
+		// Log the certificate information regardless of the validity of the chain
+		c.handshakeLog.ServerCertificates.CommonName = certs[0].Subject.CommonName
+		c.handshakeLog.ServerCertificates.AltNames = certs[0].DNSNames
+		c.handshakeLog.ServerCertificates.Issuer = certs[0].Issuer.CommonName
+
+		// If actually verifying and invalid, reject
+		if !c.config.InsecureSkipVerify {
+			if err != nil {
+				c.sendAlert(alertBadCertificate)
+				return err
+			}
 		}
 	}
 
@@ -289,6 +316,8 @@ func (hs *clientHandshakeState) doFullHandshake() error {
 	skx, ok := msg.(*serverKeyExchangeMsg)
 	if ok {
 		hs.finishedHash.Write(skx.marshal())
+
+		c.handshakeLog.ServerKeyExchange = skx.MakeLog()
 		err = keyAgreement.processServerKeyExchange(c.config, hs.hello, hs.serverHello, certs[0], skx)
 		if err != nil {
 			c.sendAlert(alertUnexpectedMessage)
@@ -513,6 +542,7 @@ func (hs *clientHandshakeState) readFinished() error {
 		c.sendAlert(alertUnexpectedMessage)
 		return unexpectedMessageError(serverFinished, msg)
 	}
+	c.handshakeLog.ServerFinished = serverFinished.MakeLog()
 
 	verify := hs.finishedHash.serverSum(hs.masterSecret)
 	if len(verify) != len(serverFinished.verifyData) ||

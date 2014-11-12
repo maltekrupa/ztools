@@ -55,8 +55,9 @@ type Conn struct {
 	tmp [16]byte
 
 	// ztls
-	heartbeat    bool
-	handshakeLog *ServerHandshake
+	heartbeat     bool
+	handshakeLog  *ServerHandshake
+	heartbleedLog *Heartbleed
 }
 
 // Access to net.Conn methods.
@@ -523,7 +524,7 @@ func (c *Conn) readRecord(want recordType) error {
 			c.sendAlert(alertInternalError)
 			return c.in.setErrorLocked(errors.New("tls: handshake or ChangeCipherSpec requested after handshake complete"))
 		}
-	case recordTypeApplicationData:
+	case recordTypeApplicationData, recordTypeHeartbeat:
 		if !c.handshakeComplete {
 			c.sendAlert(alertInternalError)
 			return c.in.setErrorLocked(errors.New("tls: application data record requested before handshake complete"))
@@ -656,6 +657,13 @@ Again:
 			return c.in.setErrorLocked(c.sendAlert(alertNoRenegotiation))
 		}
 		c.hand.Write(data)
+	case recordTypeHeartbeat:
+		if typ != recordTypeHeartbeat {
+			return c.sendAlert(alertUnexpectedMessage)
+		}
+		c.heartbleedLog.Vulnerable = true
+		c.input = b
+		b = nil
 	}
 
 	if b != nil {
