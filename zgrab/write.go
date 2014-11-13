@@ -24,7 +24,7 @@ func (w *WriteEvent) MarshalJSON() ([]byte, error) {
 }
 
 func (w *WriteEvent) UnmarshalJSON(b []byte) error {
-	var encoded EncodedWriteEvent
+	var encoded encodedWriteEvent
 	if err := json.Unmarshal(b, &encoded); err != nil {
 		return err
 	}

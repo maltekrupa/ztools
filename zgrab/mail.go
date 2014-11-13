@@ -28,12 +28,13 @@ func (e *EHLOEvent) MarshalJSON() ([]byte, error) {
 		Response: e.Response,
 		Error:    errorToStringPointer(e.Error),
 	}
+	return json.Marshal(encoded)
 }
 
 // UnmarshalJSON implments the json.Unmarshal interface
 func (e *EHLOEvent) UnmarshalJSON(b []byte) error {
 	var encoded encodedEHLOEvent
-	if err := json.Unmarshal(&encoded); err != nil {
+	if err := json.Unmarshal(b, &encoded); err != nil {
 		return err
 	}
 	e.Response = encoded.Response

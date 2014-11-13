@@ -1,5 +1,7 @@
 package zgrab
 
+import "errors"
+
 func errorToStringPointer(err error) *string {
 	if err == nil {
 		return nil
@@ -12,5 +14,5 @@ func stringPointerToError(s *string) error {
 	if s == nil {
 		return nil
 	}
-	return errors.new(*s)
+	return errors.New(*s)
 }

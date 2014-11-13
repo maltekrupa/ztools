@@ -23,11 +23,11 @@ func (h *HeartbleedEvent) MarshalJSON() ([]byte, error) {
 }
 
 func (h *HeartbleedEvent) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(h.heartbleedLog)
+	return json.Unmarshal(b, h.heartbleedLog)
 }
 
-func GetHeartbleedLog() *ztls.Heartbleed {
-	return heartbleedLog
+func (h *HeartbleedEvent) HeartbleedLog() *ztls.Heartbleed {
+	return h.heartbleedLog
 }
 
 func newHeartbleedEvent() EventData {
