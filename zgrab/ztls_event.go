@@ -41,7 +41,3 @@ var (
 func newTLSHandshakeEvent() EventData {
 	return new(TLSHandshakeEvent)
 }
-
-const (
-	CONNECTION_EVENT_TLS_NAME = "tls_handshake"
-)

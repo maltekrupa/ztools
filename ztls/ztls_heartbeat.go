@@ -25,8 +25,8 @@ var (
 )
 
 type Heartbleed struct {
-	HeartbeatEnabled bool
-	Vulnerable       bool
+	HeartbeatEnabled bool `json:"heartbeat_enabled"`
+	Vulnerable       bool `json:"heartbleed_vulnerable"`
 }
 
 type heartbleedMessage struct {
@@ -78,4 +78,8 @@ func (c *Conn) CheckHeartbleed(b []byte) (n int, err error) {
 		return 0, HeartbleedError
 	}
 	return 0, HeartbleedError
+}
+
+func (c *Conn) GetHeartbleedLog() *Heartbleed {
+	return c.heartbleedLog
 }

@@ -25,7 +25,11 @@ var typeNameToTypeMap map[string]EventType
 
 func init() {
 	typeNameToTypeMap = make(map[string]EventType)
+	RegisterEventType(ConnectEventType)
+	RegisterEventType(ReadEventType)
+	RegisterEventType(WriteEventType)
 	RegisterEventType(TLSHandshakeEventType)
+	RegisterEventType(EHLOEventType)
 }
 
 func RegisterEventType(t EventType) {
@@ -43,3 +47,13 @@ func EventTypeFromName(name string) (EventType, error) {
 	}
 	return t, nil
 }
+
+const (
+	CONNECTION_EVENT_CONNECT_NAME    = "connect"
+	CONNECTION_EVENT_READ_NAME       = "read"
+	CONNECTION_EVENT_WRITE_NAME      = "write"
+	CONNECTION_EVENT_TLS_NAME        = "tls_handshake"
+	CONNECTION_EVENT_HEARTBLEED_NAME = "heartbleed"
+	CONNECTION_EVENT_EHLO_NAME       = "ehlo"
+	CONNECTION_EVENT_STARTTLS_NAME   = "starttls"
+)
