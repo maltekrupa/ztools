@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"time"
-	"ztools/zencoding"
 )
 
 type Grab struct {
@@ -17,7 +16,7 @@ type Grab struct {
 }
 
 type ConnectionEvent struct {
-	Data  zencoding.EventData
+	Data  EventData
 	Error error
 }
 
@@ -29,14 +28,14 @@ type encodedGrab struct {
 }
 
 type encodedConnectionEvent struct {
-	Type  zencoding.EventType `json:"type"`
-	Data  zencoding.EventData `json:"data"`
-	Error *string             `json:"error"`
+	Type  EventType `json:"type"`
+	Data  EventData `json:"data"`
+	Error *string   `json:"error"`
 }
 
 type partialConnectionEvent struct {
-	Data  zencoding.EventData `json:"data"`
-	Error *string             `json:"error"`
+	Data  EventData `json:"data"`
+	Error *string   `json:"error"`
 }
 
 func (ce *ConnectionEvent) MarshalJSON() ([]byte, error) {
@@ -62,7 +61,7 @@ func (ce *ConnectionEvent) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &tn); err != nil {
 		return err
 	}
-	t, typeErr := zencoding.EventTypeFromName(tn.TypeName)
+	t, typeErr := EventTypeFromName(tn.TypeName)
 	if typeErr != nil {
 		return typeErr
 	}

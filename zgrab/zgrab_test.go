@@ -5,7 +5,6 @@ import (
 	"net"
 	"testing"
 	"time"
-	"ztools/zencoding"
 
 	. "gopkg.in/check.v1"
 )
@@ -54,11 +53,11 @@ type encodedMockEvent struct {
 	C *string
 }
 
-func newMockEvent() zencoding.EventData {
+func newMockEvent() EventData {
 	return new(mockEventData)
 }
 
-func (m *mockEventData) GetType() zencoding.EventType {
+func (m *mockEventData) GetType() EventType {
 	return mockEventType
 }
 
@@ -90,12 +89,12 @@ func (m *mockEventData) saneDefaults() *mockEventData {
 }
 
 var (
-	mockEventType = zencoding.EventType{
+	mockEventType = EventType{
 		TypeName:         "mock",
 		GetEmptyInstance: newMockEvent,
 	}
 )
 
 func init() {
-	zencoding.RegisterEventType(mockEventType)
+	RegisterEventType(mockEventType)
 }

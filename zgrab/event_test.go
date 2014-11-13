@@ -1,4 +1,4 @@
-package zencoding
+package zgrab
 
 import (
 	"testing"
