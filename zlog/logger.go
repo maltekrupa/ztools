@@ -60,7 +60,7 @@ var (
 )
 
 var (
-	defaultLogger = New(os.Stdout, "log")
+	defaultLogger = New(os.Stderr, "log")
 )
 
 func (level LogLevel) String() string {
@@ -78,10 +78,19 @@ func (level LogLevel) Color() color {
 }
 
 func New(out io.Writer, prefix string) *Logger {
+	useColor := false
+	file, ok := out.(*os.File)
+	if ok {
+		stats, _ := file.Stat()
+		// Check to see if output is a terminal
+		if (stats.Mode() & os.ModeCharDevice) != 0 {
+			useColor = true
+		}
+	}
 	logger := Logger{
 		out:      out,
 		prefix:   prefix,
-		useColor: true,
+		useColor: useColor,
 	}
 	return &logger
 }
