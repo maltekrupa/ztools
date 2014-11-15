@@ -13,9 +13,13 @@ type LoggerSuite struct{}
 var _ = Suite(&LoggerSuite{})
 
 func (s *LoggerSuite) TestPrint(c *C) {
-	Print(LOG_DEBUG, 2014, "yay", "research")
+	Error("THIS IS MAGENTA")
+	Warn("THIS IS YELLOW")
+	Info("THIS IS GREEN")
+	Debug("THIS IS BLUE")
+	Trace("THIS IS NORMAL")
 }
 
 func (s *LoggerSuite) TestPrintf(c *C) {
-	Printf(LOG_TRACE, "It's %d, %s %s %s %s?", 2019, "are", "we", "done", "yet")
+	Printf(LOG_ERROR, "THIS IS MAGENTA: %d == %d", 1, 1)
 }

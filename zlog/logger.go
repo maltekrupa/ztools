@@ -12,9 +12,14 @@ type Logger struct {
 	mu     sync.Mutex
 	out    io.Writer
 	prefix string
+
+	// Color handling
+	useColor     bool
+	currentColor color
 }
 
 type LogLevel uint8
+type color []byte
 
 const (
 	prefixFormat = "%s [%s] %s: "
@@ -29,8 +34,33 @@ const (
 	LOG_TRACE LogLevel = iota
 )
 
+const (
+	colorRed     = "\x1b[31m"
+	colorGreen   = "\x1b[32m"
+	colorYellow  = "\x1b[33m"
+	colorBlue    = "\x1b[34m"
+	colorMagenta = "\x1b[35m"
+	colorCyan    = "\x1b[36m"
+	colorReset   = "\033[0m"
+)
+
+var (
+	red     color = []byte(colorRed)
+	green   color = []byte(colorGreen)
+	yellow  color = []byte(colorYellow)
+	blue    color = []byte(colorBlue)
+	magenta color = []byte(colorMagenta)
+	cyan    color = []byte(colorCyan)
+	reset   color = []byte(colorReset)
+)
+
 var (
 	levelNames = []string{"FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"}
+	colors     = []color{red, magenta, yellow, green, blue, reset, reset}
+)
+
+var (
+	defaultLogger = New(os.Stdout, "log")
 )
 
 func (level LogLevel) String() string {
@@ -40,12 +70,18 @@ func (level LogLevel) String() string {
 	return levelNames[level]
 }
 
-var defaultLogger = New(os.Stdout, "log")
+func (level LogLevel) Color() color {
+	if level > LOG_TRACE {
+		level = LOG_TRACE
+	}
+	return colors[level]
+}
 
 func New(out io.Writer, prefix string) *Logger {
 	logger := Logger{
-		out:    out,
-		prefix: prefix,
+		out:      out,
+		prefix:   prefix,
+		useColor: true,
 	}
 	return &logger
 }
@@ -132,6 +168,14 @@ func Debugf(format string, v ...interface{}) {
 	defaultLogger.Debugf(format, v...)
 }
 
+func Info(v ...interface{}) {
+	defaultLogger.Info(v...)
+}
+
+func Infof(format string, v ...interface{}) {
+	defaultLogger.Infof(format, v...)
+}
+
 func Trace(v ...interface{}) {
 	defaultLogger.Trace(v...)
 }
@@ -162,12 +206,24 @@ func Printf(level LogLevel, format string, v ...interface{}) {
 	defaultLogger.Printf(level, format, v...)
 }
 
+func (logger *Logger) setColor(c color) {
+	logger.currentColor = c
+}
+
+func (logger *Logger) clearColor() {
+	logger.currentColor = reset
+}
+
 func (logger *Logger) doPrint(level LogLevel, v ...interface{}) {
 	timestamp := time.Now().Format(time.StampMilli)
 	s := fmt.Sprintf(prefixFormat, timestamp, level.String(), logger.prefix)
 	front := []byte(s)
 	back := []byte(fmt.Sprint(v...))
+	logger.mu.Lock()
+	logger.setColor(level.Color())
 	logger.writeLine(front, back)
+	logger.setColor(reset)
+	logger.mu.Unlock()
 }
 
 func (logger *Logger) doPrintf(level LogLevel, format string, v ...interface{}) {
@@ -175,14 +231,22 @@ func (logger *Logger) doPrintf(level LogLevel, format string, v ...interface{}) 
 	s := fmt.Sprintf(prefixFormat, timestamp, level.String(), logger.prefix)
 	front := []byte(s)
 	back := []byte(fmt.Sprintf(format, v...))
+	logger.mu.Lock()
+	logger.setColor(level.Color())
 	logger.writeLine(front, back)
+	logger.setColor(reset)
+	logger.mu.Unlock()
 }
 
 func (logger *Logger) writeLine(b ...[]byte) {
-	logger.mu.Lock()
+	if logger.useColor {
+		logger.out.Write(logger.currentColor)
+	}
 	for _, chunk := range b {
 		logger.out.Write(chunk)
 	}
+	if logger.useColor {
+		logger.out.Write(reset)
+	}
 	logger.out.Write([]byte{'\n'})
-	logger.mu.Unlock()
 }
