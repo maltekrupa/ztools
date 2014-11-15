@@ -12,6 +12,8 @@ type LoggerSuite struct{}
 
 var _ = Suite(&LoggerSuite{})
 
+// TODO: Actually implement verification
+
 func (s *LoggerSuite) TestPrint(c *C) {
 	Error("THIS IS MAGENTA")
 	Warn("THIS IS YELLOW")
