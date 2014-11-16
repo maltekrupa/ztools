@@ -658,7 +658,7 @@ Again:
 		}
 		c.hand.Write(data)
 	case recordTypeHeartbeat:
-		if typ != recordTypeHeartbeat {
+		if want != recordTypeHeartbeat {
 			return c.sendAlert(alertUnexpectedMessage)
 		}
 		c.heartbleedLog.Vulnerable = true

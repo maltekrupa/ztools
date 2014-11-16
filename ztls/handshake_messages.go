@@ -307,6 +307,7 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 	m.ticketSupported = false
 	m.sessionTicket = nil
 	m.signatureAndHashes = nil
+	m.heartbeatEnabled = false
 
 	if len(data) == 0 {
 		// ClientHello is optionally followed by extension data
@@ -447,7 +448,8 @@ type serverHelloMsg struct {
 	ocspStapling        bool
 	ticketSupported     bool
 	secureRenegotiation bool
-	heartbeat           bool
+	heartbeatEnabled bool
+	heartbeatMode uint8
 }
 
 func (m *serverHelloMsg) equal(i interface{}) bool {
@@ -494,6 +496,10 @@ func (m *serverHelloMsg) marshal() []byte {
 		numExtensions++
 	}
 	if m.secureRenegotiation {
+		extensionsLength += 1
+		numExtensions++
+	}
+	if m.heartbeatEnabled {
 		extensionsLength += 1
 		numExtensions++
 	}
@@ -557,6 +563,14 @@ func (m *serverHelloMsg) marshal() []byte {
 		z[3] = 1
 		z = z[5:]
 	}
+	if m.heartbeatEnabled {
+		z[0] = byte(extensionHeartbeat >> 8)
+		z[1] = byte(extensionHeartbeat)
+		z[2] = byte(1 >> 8)
+		z[3] = byte(1)
+		z[4] = m.heartbeatMode
+		z = z[5:]
+	}
 
 	m.raw = x
 
@@ -587,6 +601,7 @@ func (m *serverHelloMsg) unmarshal(data []byte) bool {
 	m.nextProtos = nil
 	m.ocspStapling = false
 	m.ticketSupported = false
+	m.heartbeatEnabled = false
 
 	if len(data) == 0 {
 		// ServerHello is optionally followed by extension data
@@ -641,6 +656,9 @@ func (m *serverHelloMsg) unmarshal(data []byte) bool {
 				return false
 			}
 			m.secureRenegotiation = true
+		case extensionHeartbeat:
+			m.heartbeatEnabled = true
+			m.heartbeatMode = data[0]
 		}
 		data = data[length:]
 	}

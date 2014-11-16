@@ -58,7 +58,7 @@ func (m *serverHelloMsg) MakeLog() *ServerHello {
 	sh.OcspStapling = m.ocspStapling
 	sh.TicketSupported = m.ticketSupported
 	sh.SecureRenogotiation = m.secureRenegotiation
-	sh.HeartbeatSupported = m.heartbeat
+	sh.HeartbeatSupported = m.heartbeatEnabled
 	return sh
 }
 

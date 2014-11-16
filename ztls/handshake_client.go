@@ -38,6 +38,7 @@ func (c *Conn) clientHandshake() error {
 	}
 
 	c.handshakeLog = new(ServerHandshake)
+	c.heartbleedLog = new(Heartbleed)
 
 	hello := &clientHelloMsg{
 		vers:                c.config.maxVersion(),
@@ -49,6 +50,8 @@ func (c *Conn) clientHandshake() error {
 		supportedPoints:     []uint8{pointFormatUncompressed},
 		nextProtoNeg:        len(c.config.NextProtos) > 0,
 		secureRenegotiation: true,
+		heartbeatEnabled: true,
+		heartbeatMode: heartbeatModePeerAllowed,
 	}
 
 	possibleCipherSuites := c.config.cipherSuites()
@@ -137,6 +140,11 @@ NextCipherSuite:
 		return unexpectedMessageError(serverHello, msg)
 	}
 	c.handshakeLog.ServerHello = serverHello.MakeLog()
+
+	if serverHello.heartbeatEnabled {
+		c.heartbeat = true
+		c.heartbleedLog.HeartbeatEnabled = true
+	}
 
 	vers, ok := c.config.mutualVersion(serverHello.vers)
 	if !ok {

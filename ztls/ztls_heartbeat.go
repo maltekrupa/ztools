@@ -62,7 +62,7 @@ func (c *Conn) CheckHeartbleed(b []byte) (n int, err error) {
 	if err = c.readRecord(recordTypeHeartbeat); err != nil {
 		return 0, HeartbleedError
 	}
-	if err = c.in.error(); err != nil {
+	if c.in.err != nil {
 		return 0, HeartbleedError
 	}
 	n, err = c.input.Read(b)
