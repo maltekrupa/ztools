@@ -194,6 +194,9 @@ func Tracef(format string, v ...interface{}) {
 }
 
 func (logger *Logger) Print(level LogLevel, v ...interface{}) {
+	if level > LOG_TRACE {
+		level = LOG_TRACE
+	}
 	logger.doPrint(level, v...)
 	if level == LOG_FATAL {
 		os.Exit(1)
@@ -201,6 +204,9 @@ func (logger *Logger) Print(level LogLevel, v ...interface{}) {
 }
 
 func (logger *Logger) Printf(level LogLevel, format string, v ...interface{}) {
+	if level > LOG_TRACE {
+		level = LOG_TRACE
+	}
 	logger.doPrintf(level, format, v...)
 	if level == LOG_FATAL {
 		os.Exit(1)
@@ -225,37 +231,31 @@ func (logger *Logger) clearColor() {
 
 func (logger *Logger) doPrint(level LogLevel, v ...interface{}) {
 	timestamp := time.Now().Format(time.StampMilli)
-	s := fmt.Sprintf(prefixFormat, timestamp, level.String(), logger.prefix)
-	front := []byte(s)
-	back := []byte(fmt.Sprint(v...))
 	logger.mu.Lock()
-	logger.setColor(level.Color())
-	logger.writeLine(front, back)
-	logger.setColor(reset)
-	logger.mu.Unlock()
+	defer logger.mu.Unlock()
+	// Handle color output
+	if logger.useColor {
+		logger.out.Write(colors[level])
+		defer logger.out.Write(reset)
+	}
+
+	// Write the line out
+	fmt.Fprintf(logger.out, prefixFormat, timestamp, level.String(), logger.prefix)
+	fmt.Fprint(logger.out, v...)
+	logger.out.Write([]byte{'\n'})
 }
 
 func (logger *Logger) doPrintf(level LogLevel, format string, v ...interface{}) {
 	timestamp := time.Now().Format(time.StampMilli)
-	s := fmt.Sprintf(prefixFormat, timestamp, level.String(), logger.prefix)
-	front := []byte(s)
-	back := []byte(fmt.Sprintf(format, v...))
 	logger.mu.Lock()
-	logger.setColor(level.Color())
-	logger.writeLine(front, back)
-	logger.setColor(reset)
-	logger.mu.Unlock()
-}
-
-func (logger *Logger) writeLine(b ...[]byte) {
+	defer logger.mu.Unlock()
+	// Handle color
 	if logger.useColor {
-		logger.out.Write(logger.currentColor)
+		logger.out.Write(colors[level])
+		defer logger.out.Write(reset)
 	}
-	for _, chunk := range b {
-		logger.out.Write(chunk)
-	}
-	if logger.useColor {
-		logger.out.Write(reset)
-	}
+	// Write the line out
+	fmt.Fprintf(logger.out, prefixFormat, timestamp, level.String(), logger.prefix)
+	fmt.Fprintf(logger.out, format, v...)
 	logger.out.Write([]byte{'\n'})
 }
