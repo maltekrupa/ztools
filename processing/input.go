@@ -10,7 +10,15 @@ type Encoder interface {
 	Encode(v interface{}) error
 }
 
-type Worker func(v interface{}) interface{}
+type Worker interface {
+	MakeHandler(uint) Handler
+	Success() uint
+	Failure() uint
+	Total() uint
+	Done()
+}
+
+type Handler func(interface{}) interface{}
 
 func Process(in Decoder, out Encoder, w Worker, workers uint) {
 	processQueue := make(chan interface{}, workers*4)
@@ -26,13 +34,14 @@ func Process(in Decoder, out Encoder, w Worker, workers uint) {
 	}()
 	// Start all the workers
 	for i := uint(0); i < workers; i++ {
-		go func() {
+		handler := w.MakeHandler(i)
+		go func(handler Handler) {
 			for obj := range processQueue {
-				result := w(obj)
+				result := handler(obj)
 				outputQueue <- result
 			}
 			workerDone <- 1
-		}()
+		}(handler)
 	}
 	// Read the input, send to workers
 	for {
@@ -48,4 +57,5 @@ func Process(in Decoder, out Encoder, w Worker, workers uint) {
 	}
 	close(outputQueue)
 	<-outputDone
+	w.Done()
 }
